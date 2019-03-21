@@ -1,0 +1,14 @@
+[package]
+name = "controls"
+version = "0.1.0"
+authors = ["Speedy Consoles <rubihome@gmx.de>"]
+edition = "2018"
+
+[dependencies]
+winit = "0.18.0"
+num = "0.2.0"
+toml = "0.4.10"
+
+[dev-dependencies]
+strum = "0.14.0"
+strum_macros = "0.14.0"
