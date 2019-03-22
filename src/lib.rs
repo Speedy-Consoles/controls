@@ -471,15 +471,10 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
                 }
             },
             Released => {
-                debug_assert!(
-                    *device_counter > 0,
-                    "Tried to decrease holdable trigger per-device counter that is {}",
-                    *device_counter
-                );
-                debug_assert!(
-                    *overall_counter > 0,
-                    "Tried to decrease holdable trigger overall counter that is {}",
-                    *overall_counter);
+                if *device_counter == 0 {
+                    // apparently the trigger was active before controls were initialized
+                    return;
+                }
                 *device_counter -= 1;
                 *overall_counter -= 1;
                 if *overall_counter != 0 {
