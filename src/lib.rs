@@ -21,7 +21,7 @@ pub use self::triggers::HoldableTrigger;
 pub use self::triggers::ValueTrigger;
 pub use winit::VirtualKeyCode;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseWheelDirection {
     Up,
     Down,
@@ -37,7 +37,7 @@ pub trait ValueTargetTrait {
     fn base_factor(&self) -> f64;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Target<FireTarget, SwitchTarget, ValueTarget>
 where FireTarget: FromStr,
       SwitchTarget: FromStr,
@@ -70,7 +70,7 @@ where FireTarget: FromStr,
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ControlBind<FireTarget, SwitchTarget, ValueTarget> {
     Fire(FireTrigger, FireTarget),
     Switch(HoldableTrigger, SwitchTarget),

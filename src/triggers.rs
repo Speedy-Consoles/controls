@@ -6,7 +6,7 @@ use winit::VirtualKeyCode;
 
 use super::MouseWheelDirection;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FireTrigger {
     Holdable(HoldableTrigger),
     MouseWheelTick(MouseWheelDirection),
@@ -44,7 +44,7 @@ impl FireTrigger {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum HoldableTrigger {
     ScanCode(u32),
     KeyCode(VirtualKeyCode),
@@ -110,7 +110,7 @@ impl HoldableTrigger {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueTrigger {
     MouseX,
     MouseY,
