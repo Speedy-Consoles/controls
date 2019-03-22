@@ -71,7 +71,7 @@ where FireTarget: FromStr,
 }
 
 #[derive(Debug)]
-pub enum Bind<FireTarget, SwitchTarget, ValueTarget> {
+pub enum ControlBind<FireTarget, SwitchTarget, ValueTarget> {
     Fire(FireTrigger, FireTarget),
     Switch(HoldableTrigger, SwitchTarget),
     Value(ValueTrigger, ValueTarget),
@@ -162,7 +162,7 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
     }
 
     pub fn from_toml(value: &toml::value::Value) -> Result<Self, String> {
-        use self::Bind::*;
+        use self::ControlBind::*;
         use toml::Value::Table;
         use toml::Value::Float;
 
@@ -252,19 +252,19 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
         self.value_factors.insert(target, factor);
     }
 
-    pub fn add_bind(&mut self, bind: Bind<FireTarget, SwitchTarget, ValueTarget>) {
+    pub fn add_bind(&mut self, bind: ControlBind<FireTarget, SwitchTarget, ValueTarget>) {
         match bind {
-            Bind::Fire(trigger, target) => self.add_fire_bind(trigger, target),
-            Bind::Switch(trigger, target) => self.add_switch_bind(trigger, target),
-            Bind::Value(trigger, target) => self.add_value_bind(trigger, target),
+            ControlBind::Fire(trigger, target) => self.add_fire_bind(trigger, target),
+            ControlBind::Switch(trigger, target) => self.add_switch_bind(trigger, target),
+            ControlBind::Value(trigger, target) => self.add_value_bind(trigger, target),
         };
     }
 
-    pub fn remove_bind(&mut self, bind: Bind<FireTarget, SwitchTarget, ValueTarget>) {
+    pub fn remove_bind(&mut self, bind: ControlBind<FireTarget, SwitchTarget, ValueTarget>) {
         match bind {
-            Bind::Fire(trigger, target) => self.remove_fire_bind(trigger, target),
-            Bind::Switch(trigger, target) => self.remove_switch_bind(trigger, target),
-            Bind::Value(trigger, target) => self.remove_value_bind(trigger, target),
+            ControlBind::Fire(trigger, target) => self.remove_fire_bind(trigger, target),
+            ControlBind::Switch(trigger, target) => self.remove_switch_bind(trigger, target),
+            ControlBind::Value(trigger, target) => self.remove_value_bind(trigger, target),
         };
     }
 
@@ -563,7 +563,7 @@ mod tests {
     use strum_macros::ToString;
 
     use crate::Controls;
-    use crate::Bind;
+    use crate::ControlBind;
     use crate::ValueTargetTrait;
     use crate::FireTrigger;
     use crate::HoldableTrigger;
@@ -603,22 +603,22 @@ mod tests {
         let mut events_loop = EventsLoop::new();
         let _window = Window::new(&events_loop).unwrap();
         let mut controls: Controls<FireTarget, SwitchTarget, ValueTarget> = Controls::new();
-        controls.add_bind(Bind::Fire(FireTrigger::Holdable(HoldableTrigger::Button(1)), FireTarget::LMBFire));
-        controls.add_bind(Bind::Fire(FireTrigger::Holdable(HoldableTrigger::Button(1)), FireTarget::LMBFire)); // double bind ;)
-        controls.add_bind(Bind::Fire(FireTrigger::MouseWheelTick(MouseWheelDirection::Up), FireTarget::MWUpFire));
-        controls.add_bind(Bind::Fire(FireTrigger::MouseWheelTick(MouseWheelDirection::Down), FireTarget::MWDownFire));
-        controls.add_bind(Bind::Fire(FireTrigger::Holdable(HoldableTrigger::KeyCode(VirtualKeyCode::G)), FireTarget::GHFire));
-        controls.add_bind(Bind::Fire(FireTrigger::Holdable(HoldableTrigger::KeyCode(VirtualKeyCode::H)), FireTarget::GHFire));
+        controls.add_bind(ControlBind::Fire(FireTrigger::Holdable(HoldableTrigger::Button(1)), FireTarget::LMBFire));
+        controls.add_bind(ControlBind::Fire(FireTrigger::Holdable(HoldableTrigger::Button(1)), FireTarget::LMBFire)); // double bind ;)
+        controls.add_bind(ControlBind::Fire(FireTrigger::MouseWheelTick(MouseWheelDirection::Up), FireTarget::MWUpFire));
+        controls.add_bind(ControlBind::Fire(FireTrigger::MouseWheelTick(MouseWheelDirection::Down), FireTarget::MWDownFire));
+        controls.add_bind(ControlBind::Fire(FireTrigger::Holdable(HoldableTrigger::KeyCode(VirtualKeyCode::G)), FireTarget::GHFire));
+        controls.add_bind(ControlBind::Fire(FireTrigger::Holdable(HoldableTrigger::KeyCode(VirtualKeyCode::H)), FireTarget::GHFire));
 
-        controls.add_bind(Bind::Switch(HoldableTrigger::Button(3), SwitchTarget::RMBSwitch));
-        controls.add_bind(Bind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::G), SwitchTarget::GHSwitch));
-        controls.add_bind(Bind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::G), SwitchTarget::GHSwitch)); // double bind ;)
-        controls.add_bind(Bind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::H), SwitchTarget::GHSwitch));
-        controls.add_bind(Bind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::Key0), SwitchTarget::Key0Switch));
-        controls.add_bind(Bind::Switch(HoldableTrigger::Button(2), SwitchTarget::AMMBSwitch));
-        controls.add_bind(Bind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::A), SwitchTarget::AMMBSwitch));
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::Button(3), SwitchTarget::RMBSwitch));
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::G), SwitchTarget::GHSwitch));
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::G), SwitchTarget::GHSwitch)); // double bind ;)
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::H), SwitchTarget::GHSwitch));
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::Key0), SwitchTarget::Key0Switch));
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::Button(2), SwitchTarget::AMMBSwitch));
+        controls.add_bind(ControlBind::Switch(HoldableTrigger::KeyCode(VirtualKeyCode::A), SwitchTarget::AMMBSwitch));
 
-        controls.add_bind(Bind::Value(ValueTrigger::Axis(0), ValueTarget::MouseX));
+        controls.add_bind(ControlBind::Value(ValueTrigger::Axis(0), ValueTarget::MouseX));
 
         let mut close_requested = false;
         while !close_requested {
