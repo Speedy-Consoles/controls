@@ -3,7 +3,6 @@ use std::convert::AsRef;
 use toml;
 use num::NumCast;
 use winit::VirtualKeyCode;
-use winit::ButtonId;
 
 use super::MouseWheelDirection;
 
@@ -49,7 +48,7 @@ impl FireTrigger {
 pub enum HoldableTrigger {
     ScanCode(u32),
     KeyCode(VirtualKeyCode),
-    Button(ButtonId),
+    Button(u32),
 }
 
 impl HoldableTrigger {
