@@ -388,15 +388,17 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
         };
     }
 
-    fn on_motion(&mut self, _device_id: DeviceId, axis: u32, mut value: f64) {
+    fn on_motion(&mut self, _device_id: DeviceId, axis: u32, value: f64) {
         use self::ControlEvent::*;
 
         if let Some(mapping) = self.axis_mappings.get(&axis) {
             for &target in mapping {
-                let factor = self.value_factors.get(&target).unwrap_or(&1.0);
                 if value != 0.0 {
-                    value *= factor * target.base_factor();
-                    self.events.push_back(Value { target, value });
+                    let factor = self.value_factors.get(&target).unwrap_or(&1.0);
+                    self.events.push_back(Value {
+                        target,
+                        value: value * factor * target.base_factor(),
+                    });
                 }
             }
         }
@@ -408,10 +410,12 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
 
         if let Some(mapping) = self.axis_mappings.get(&axis) {
             for &target in mapping {
-                let factor = self.value_factors.get(&target).unwrap_or(&1.0);
                 if value != 0.0 {
-                    value *= factor * target.base_factor();
-                    self.events.push_back(Value { target, value });
+                    let factor = self.value_factors.get(&target).unwrap_or(&1.0);
+                    self.events.push_back(Value {
+                        target,
+                        value: value * factor * target.base_factor(),
+                    });
                 }
             }
         }*/
@@ -449,7 +453,11 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
             }
         }
         for &target in self.mouse_wheel_mapping.on_change.iter() {
-            self.events.push_back(Value { target, value });
+            let factor = self.value_factors.get(&target).unwrap_or(&1.0);
+            self.events.push_back(Value {
+                target,
+                value: value * factor * target.base_factor(),
+            });
         }
     }
 
