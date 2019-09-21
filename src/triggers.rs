@@ -2,7 +2,7 @@ use std::convert::AsRef;
 
 use toml;
 use num::NumCast;
-use winit::VirtualKeyCode;
+use winit::event::VirtualKeyCode;
 
 use super::MouseWheelDirection;
 

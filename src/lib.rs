@@ -9,17 +9,17 @@ use std::string::ToString;
 use std::hash::Hash;
 use std::str::FromStr;
 
-use winit::ElementState;
-use winit::ButtonId;
-use winit::MouseScrollDelta;
-use winit::DeviceId;
-use winit::DeviceEvent;
-use winit::KeyboardInput;
+use winit::event::ElementState;
+use winit::event::ButtonId;
+use winit::event::MouseScrollDelta;
+use winit::event::DeviceId;
+use winit::event::DeviceEvent;
+use winit::event::KeyboardInput;
 
 pub use self::triggers::FireTrigger;
 pub use self::triggers::HoldableTrigger;
 pub use self::triggers::ValueTrigger;
-pub use winit::VirtualKeyCode;
+pub use winit::event::VirtualKeyCode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseWheelDirection {
@@ -557,10 +557,11 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
 
 #[cfg(test)]
 mod tests {
-    use winit::EventsLoop;
-    use winit::Event;
-    use winit::WindowEvent;
-    use winit::Window;
+    use winit::event_loop::EventLoop;
+    use winit::event::Event;
+    use winit::event::WindowEvent;
+    use winit::window::Window;
+    use winit::event_loop::ControlFlow;
 
     use strum_macros::EnumString;
     use strum_macros::ToString;
@@ -603,8 +604,8 @@ mod tests {
 
     #[test]
     fn test_all() {
-        let mut events_loop = EventsLoop::new();
-        let _window = Window::new(&events_loop).unwrap();
+        let event_loop = EventLoop::new();
+        let _window = Window::new(&event_loop).unwrap();
         let mut controls: Controls<FireTarget, SwitchTarget, ValueTarget> = Controls::new();
         controls.add_bind(ControlBind::Fire(FireTrigger::Holdable(HoldableTrigger::Button(1)), FireTarget::LMBFire));
         controls.add_bind(ControlBind::Fire(FireTrigger::Holdable(HoldableTrigger::Button(1)), FireTarget::LMBFire)); // double bind ;)
@@ -624,19 +625,23 @@ mod tests {
         controls.add_bind(ControlBind::Value(ValueTrigger::Axis(0), ValueTarget::MouseX));
 
         let mut close_requested = false;
-        while !close_requested {
-            events_loop.poll_events(|event| {
-                //eprintln!("{:?}", event);
-                match event {
-                    Event::DeviceEvent { device_id, event } => controls.process(device_id, event),
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => close_requested = true,
-                    _ => (),
-                }
-            });
+        event_loop.run(move |event, _, control_flow| {
+            //eprintln!("{:?}", event);
+            match event {
+                Event::DeviceEvent { device_id, event } => controls.process(device_id, event),
+                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => close_requested = true,
+                _ => (),
+            }
 
             for event in controls.get_events() {
                 eprintln!("{:?}", event);
             }
-        }
+
+            if close_requested {
+                *control_flow = ControlFlow::Exit;
+            } else {
+                *control_flow = ControlFlow::Wait;
+            }
+        });
     }
 }
