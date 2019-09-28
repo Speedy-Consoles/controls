@@ -1,7 +1,6 @@
 mod triggers;
 
 use std::collections::VecDeque;
-use std::collections::vec_deque::Drain;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::BTreeMap;
@@ -284,8 +283,9 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
         }
     }
 
-    pub fn get_events(&mut self) -> Drain<ControlEvent<FireTarget, SwitchTarget, ValueTarget>> {
-        self.events.drain(..)
+    pub fn get_events(&mut self, events: &mut VecDeque<ControlEvent<FireTarget, SwitchTarget, ValueTarget>>) {
+        events.clear();
+        std::mem::swap(&mut self.events, events);
     }
 
     fn add_fire_bind(&mut self, trigger: FireTrigger, target: FireTarget) {
@@ -574,6 +574,7 @@ mod tests {
     use crate::ValueTrigger;
     use crate::MouseWheelDirection;
     use crate::VirtualKeyCode;
+    use std::collections::vec_deque::VecDeque;
 
     #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, ToString, EnumString)]
     enum FireTarget {
@@ -625,6 +626,7 @@ mod tests {
         controls.add_bind(ControlBind::Value(ValueTrigger::Axis(0), ValueTarget::MouseX));
 
         let mut close_requested = false;
+        let mut event_buffer = VecDeque::new();
         event_loop.run(move |event, _, control_flow| {
             //eprintln!("{:?}", event);
             match event {
@@ -633,7 +635,8 @@ mod tests {
                 _ => (),
             }
 
-            for event in controls.get_events() {
+            controls.get_events(&mut event_buffer);
+            for event in event_buffer.drain(..) {
                 eprintln!("{:?}", event);
             }
 
