@@ -131,6 +131,11 @@ pub enum ControlEvent<FireTarget, SwitchTarget, ValueTarget> {
     Value { target: ValueTarget, value: f64 },
 }
 
+pub struct SwitchCounter {
+    counter: u32,
+    announced_state: SwitchState,
+}
+
 pub struct Controls<FireTarget, SwitchTarget, ValueTarget>
 where FireTarget: Eq + Hash,
       SwitchTarget: Eq + Hash,
@@ -139,9 +144,10 @@ where FireTarget: Eq + Hash,
     holdable_trigger_data: HashMap<HoldableTrigger, HoldableTriggerData<FireTarget, SwitchTarget>>,
     axis_mappings: HashMap<u32, HashSet<ValueTarget>>,
     mouse_wheel_mapping: MouseWheelMapping<FireTarget, ValueTarget>,
-    switch_counter: HashMap<SwitchTarget, u32>,
+    switch_counters: HashMap<SwitchTarget, SwitchCounter>,
     value_factors: HashMap<ValueTarget, f64>,
     events: VecDeque<ControlEvent<FireTarget, SwitchTarget, ValueTarget>>,
+    paused: bool,
 }
 
 impl<FireTarget, SwitchTarget, ValueTarget> Controls<FireTarget, SwitchTarget, ValueTarget>
@@ -154,9 +160,10 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
             holdable_trigger_data: HashMap::new(),
             axis_mappings: HashMap::new(),
             mouse_wheel_mapping: MouseWheelMapping::new(),
-            switch_counter: HashMap::new(),
+            switch_counters: HashMap::new(),
             value_factors: HashMap::new(),
-            events: VecDeque::new()
+            events: VecDeque::new(),
+            paused: false,
         }
     }
 
@@ -267,6 +274,31 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
         };
     }
 
+    pub fn pause(&mut self) {
+        self.paused = true;
+    }
+
+    pub fn resume(&mut self) {
+        if self.paused {
+            for (&target, counter) in self.switch_counters.iter_mut() {
+                if counter.counter > 0 && counter.announced_state == SwitchState::Inactive {
+                    counter.announced_state = SwitchState::Active;
+                    self.events.push_back(ControlEvent::Switch {
+                        target,
+                        state: SwitchState::Active,
+                    });
+                } else if counter.counter == 0 && counter.announced_state == SwitchState::Active {
+                    counter.announced_state = SwitchState::Inactive;
+                    self.events.push_back(ControlEvent::Switch {
+                        target,
+                        state: SwitchState::Inactive,
+                    });
+                }
+            }
+        }
+        self.paused = false;
+    }
+
     pub fn process(
         &mut self,
         device_id: DeviceId,
@@ -316,8 +348,9 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
         if bind_is_new && trigger_is_active {
             Self::increase_switch_target_counter(
                 target,
-                &mut self.switch_counter,
-                &mut self.events
+                &mut self.switch_counters,
+                &mut self.events,
+                self.paused,
             );
         }
     }
@@ -362,8 +395,9 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
             if bind_existed && trigger_is_active {
                 Self::decrease_switch_target_counter(
                     target,
-                    &mut self.switch_counter,
-                    &mut self.events
+                    &mut self.switch_counters,
+                    &mut self.events,
+                    self.paused,
                 );
             }
         }
@@ -393,7 +427,7 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
 
         if let Some(mapping) = self.axis_mappings.get(&axis) {
             for &target in mapping {
-                if value != 0.0 {
+                if value != 0.0 && !self.paused {
                     let factor = self.value_factors.get(&target).unwrap_or(&1.0);
                     self.events.push_back(Value {
                         target,
@@ -443,21 +477,23 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
             PixelDelta(_) => return,
         };
 
-        if value < 0.0 {
-            for &fire_target in self.mouse_wheel_mapping.on_up.iter() {
-                self.events.push_back(Fire(fire_target));
+        if !self.paused {
+            if value < 0.0 {
+                for &fire_target in self.mouse_wheel_mapping.on_up.iter() {
+                    self.events.push_back(Fire(fire_target));
+                }
+            } else if value > 0.0 {
+                for &fire_target in self.mouse_wheel_mapping.on_down.iter() {
+                    self.events.push_back(Fire(fire_target));
+                }
             }
-        } else if value > 0.0 {
-            for &fire_target in self.mouse_wheel_mapping.on_down.iter() {
-                self.events.push_back(Fire(fire_target));
+            for &target in self.mouse_wheel_mapping.on_change.iter() {
+                let factor = self.value_factors.get(&target).unwrap_or(&1.0);
+                self.events.push_back(Value {
+                    target,
+                    value: value * factor * target.base_factor(),
+                });
             }
-        }
-        for &target in self.mouse_wheel_mapping.on_change.iter() {
-            let factor = self.value_factors.get(&target).unwrap_or(&1.0);
-            self.events.push_back(Value {
-                target,
-                value: value * factor * target.base_factor(),
-            });
         }
     }
 
@@ -492,7 +528,7 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
         }
 
         if let Some(data) = self.holdable_trigger_data.get_mut(&trigger) {
-            if state == Pressed {
+            if state == Pressed && !self.paused {
                 for &fire_target in data.on_press.iter() {
                     self.events.push_back(Fire(fire_target));
                 }
@@ -501,13 +537,15 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
                 match state {
                     Pressed => Self::increase_switch_target_counter(
                         switch_target,
-                        &mut self.switch_counter,
-                        &mut self.events
+                        &mut self.switch_counters,
+                        &mut self.events,
+                        self.paused,
                     ),
                     Released => Self::decrease_switch_target_counter(
                         switch_target,
-                        &mut self.switch_counter,
-                        &mut self.events
+                        &mut self.switch_counters,
+                        &mut self.events,
+                        self.paused,
                     ),
                 }
             }
@@ -525,28 +563,38 @@ where FireTarget: Copy + Eq + Hash + FromStr + ToString,
 
     fn increase_switch_target_counter(
         target: SwitchTarget,
-        switch_counter: &mut HashMap<SwitchTarget, u32>,
-        events: &mut VecDeque<ControlEvent<FireTarget, SwitchTarget, ValueTarget>>
+        switch_counter: &mut HashMap<SwitchTarget, SwitchCounter>,
+        events: &mut VecDeque<ControlEvent<FireTarget, SwitchTarget, ValueTarget>>,
+        paused: bool,
     ) {
-        let counter = switch_counter.entry(target).or_insert(0);
-        if *counter == 0 {
+        let counter = switch_counter.entry(target).or_insert(SwitchCounter {
+            counter: 0,
+            announced_state: SwitchState::Inactive,
+        });
+        if counter.counter == 0 && !paused {
+            counter.announced_state = SwitchState::Active;
             events.push_back(ControlEvent::Switch {
                 target,
                 state: SwitchState::Active,
             });
         }
-        *counter += 1;
+        counter.counter += 1;
     }
 
     fn decrease_switch_target_counter(
         target: SwitchTarget,
-        switch_counter: &mut HashMap<SwitchTarget, u32>,
+        switch_counter: &mut HashMap<SwitchTarget, SwitchCounter>,
         events: &mut VecDeque<ControlEvent<FireTarget, SwitchTarget, ValueTarget>>,
+        paused: bool,
     ) {
-        let counter = switch_counter.entry(target).or_insert(0);
-        debug_assert!(*counter > 0, "Tried to decrease switch target counter that is {}", *counter);
-        *counter -= 1;
-        if *counter == 0 {
+        let counter = switch_counter.entry(target).or_insert(SwitchCounter {
+            counter: 0,
+            announced_state: SwitchState::Inactive,
+        });
+        debug_assert!(counter.counter > 0, "Tried to decrease switch target counter that is {}", counter.counter);
+        counter.counter -= 1;
+        if counter.counter == 0 && !paused {
+            counter.announced_state = SwitchState::Inactive;
             events.push_back(ControlEvent::Switch {
                 target,
                 state: SwitchState::Inactive,
@@ -632,6 +680,13 @@ mod tests {
             match event {
                 Event::DeviceEvent { device_id, event } => controls.process(device_id, event),
                 Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => close_requested = true,
+                Event::WindowEvent { event: WindowEvent::Focused(focused), .. } => {
+                    if focused {
+                        controls.resume();
+                    } else {
+                        controls.pause()
+                    }
+                },
                 _ => (),
             }
 
